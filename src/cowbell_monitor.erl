@@ -37,6 +37,7 @@
 -export([reconnect_node_loop/3]).
 
 %% macros
+-define(TABLE_RETRY_PROCESSES, cowbell_retry_processes_table).
 -define(DEFAULT_RETRY_INTERVAL_SEC, 10).
 -define(DEFAULT_ABANDON_NODE_AFTER_SEC, 86400).
 
@@ -76,6 +77,9 @@ init([]) ->
     RetryIntervalSec = application:get_env(cowbell, retry_interval_sec, ?DEFAULT_RETRY_INTERVAL_SEC),
     AbandonNodeAfterSec = application:get_env(cowbell, abandon_node_after_sec, ?DEFAULT_ABANDON_NODE_AFTER_SEC),
     {ok, Nodes} = application:get_env(nodes),
+
+    %% setup proc retry table
+    ets:new(?TABLE_RETRY_PROCESSES, [set, public, named_table]),
 
     %% listen for events
     ok = net_kernel:monitor_nodes(true),
@@ -136,11 +140,21 @@ handle_info({nodedown, Node}, #state{
         "Node ~p got disconnected, will try reconnecting every ~p seconds for a max of ~p seconds",
         [Node, RetryIntervalSec, AbandonNodeAfterSec]
     ),
-    spawn_link(?MODULE, reconnect_node_loop, [Node, RetryIntervalSec, AbandonNodeAfterSec]),
+    %% spawn
+    RetryPid = spawn_link(?MODULE, reconnect_node_loop, [Node, RetryIntervalSec, AbandonNodeAfterSec]),
+    %% insert
+    true = ets:insert(?TABLE_RETRY_PROCESSES, {Node, RetryPid}),
+    %% return
     {noreply, State};
 
 handle_info({nodeup, Node}, State) ->
     error_logger:warning_msg("Node ~p got connected", [Node]),
+    %% kill retry process
+    case ets:lookup(?TABLE_RETRY_PROCESSES, Node) of
+        [{Node, RetryPid}] -> exit(RetryPid, normal);
+        _ -> ok
+    end,
+    %% return
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -153,6 +167,9 @@ handle_info(Info, State) ->
 -spec terminate(Reason :: any(), #state{}) -> terminated.
 terminate(Reason, _State) ->
     error_logger:info_msg("Terminating cowbell monitor with reason: ~p", [Reason]),
+    %% delete ETS table
+    ets:delete(?TABLE_RETRY_PROCESSES),
+    %% return
     terminated.
 
 %% ----------------------------------------------------------------------------------------------------------

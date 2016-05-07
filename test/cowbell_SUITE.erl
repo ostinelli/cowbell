@@ -209,13 +209,14 @@ two_nodes_abandon(Config) ->
 
     %% stop slave
     cowbell_test_suite_helper:stop_slave(SlaveNodeShortName),
-    ProcessCountWithRetryProcess = length(processes()),
+    timer:sleep(100),
 
     %% check disconnected
     [] = nodes(),
+    ProcessCountWithRetryProcess = length(processes()),
 
     %% let abandon period go by
-    timer:sleep(3500),
+    timer:sleep(5000),
 
     %% check processes count
     %% (this is not an exhaustive test, but it's the best we can do: we verify that a process died - the reconnect process)
