@@ -34,15 +34,17 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% internal
--export([reconnect_node_loop/2]).
+-export([reconnect_node_loop/3]).
 
 %% macros
--define(DEFAULT_RETRY_INTERVAL_MS, 10000).
+-define(DEFAULT_RETRY_INTERVAL_SEC, 10).
+-define(DEFAULT_ABANDON_NODE_AFTER_SEC, 86400).
 
 %% records
 -record(state, {
     nodes = [] :: list(),
-    retry_interval_ms = 0 :: non_neg_integer()
+    retry_interval_sec = 0 :: non_neg_integer(),
+    abandon_node_after_sec :: non_neg_integer()
 }).
 
 %% ===================================================================
@@ -71,7 +73,8 @@ connect_nodes() ->
     {stop, Reason :: any()}.
 init([]) ->
     %% get preferences
-    RetryIntervalMs = application:get_env(cowbell, retry_interval_ms, ?DEFAULT_RETRY_INTERVAL_MS),
+    RetryIntervalSec = application:get_env(cowbell, retry_interval_sec, ?DEFAULT_RETRY_INTERVAL_SEC),
+    AbandonNodeAfterSec = application:get_env(cowbell, abandon_node_after_sec, ?DEFAULT_ABANDON_NODE_AFTER_SEC),
     {ok, Nodes} = application:get_env(nodes),
 
     %% listen for events
@@ -80,7 +83,8 @@ init([]) ->
     %% build state
     {ok, #state{
         nodes = Nodes,
-        retry_interval_ms = RetryIntervalMs
+        retry_interval_sec = RetryIntervalSec,
+        abandon_node_after_sec = AbandonNodeAfterSec
     }}.
 
 %% ----------------------------------------------------------------------------------------------------------
@@ -125,10 +129,14 @@ handle_cast(Msg, State) ->
     {stop, Reason :: any(), #state{}}.
 
 handle_info({nodedown, Node}, #state{
-    retry_interval_ms = RetryIntervalMs
+    retry_interval_sec = RetryIntervalSec,
+    abandon_node_after_sec = AbandonNodeAfterSec
 } = State) ->
-    error_logger:warning_msg("Node ~p got disconnected, will try to reconnect in ~p ms", [Node, RetryIntervalMs]),
-    spawn_link(?MODULE, reconnect_node_loop, [Node, RetryIntervalMs]),
+    error_logger:warning_msg(
+        "Node ~p got disconnected, will try reconnecting every ~p seconds for a max of ~p seconds",
+        [Node, RetryIntervalSec, AbandonNodeAfterSec]
+    ),
+    spawn_link(?MODULE, reconnect_node_loop, [Node, RetryIntervalSec, AbandonNodeAfterSec]),
     {noreply, State};
 
 handle_info({nodeup, Node}, State) ->
@@ -161,20 +169,33 @@ code_change(_OldVsn, State, _Extra) ->
 connect_nodes(Nodes) ->
     [i_connect_node(Node) || Node <- Nodes].
 
--spec reconnect_node_loop(Node :: atom(), RetryIntervalMs :: non_neg_integer()) -> ok.
-reconnect_node_loop(Node, RetryIntervalMs) ->
-    timer:sleep(RetryIntervalMs),
+-spec reconnect_node_loop(
+    Node :: atom(),
+    RetryIntervalSec :: non_neg_integer(),
+    AbandonNodeAfterSec :: non_neg_integer()
+) -> ok.
+reconnect_node_loop(Node, RetryIntervalSec, AbandonNodeAfterSec) ->
+    reconnect_node_loop(Node, RetryIntervalSec, AbandonNodeAfterSec, 0).
+
+-spec reconnect_node_loop(
+    Node :: atom(),
+    RetryIntervalSec :: non_neg_integer(),
+    TotalRetriesSec :: non_neg_integer(),
+    AbandonNodeAfterSec :: non_neg_integer()
+) -> ok.
+reconnect_node_loop(Node, _, AbandonNodeAfterSec, TotalRetriesSec) when TotalRetriesSec >= AbandonNodeAfterSec ->
+    error_logger:info_msg("Could not connect to node '~p' after retrying for ~p seconds, abandoning", [Node, TotalRetriesSec]),
+    ok;
+reconnect_node_loop(Node, RetryIntervalSec, AbandonNodeAfterSec, TotalRetriesSec) ->
+    timer:sleep(RetryIntervalSec * 1000),
     case i_connect_node(Node) of
         true -> ok;
-        false -> reconnect_node_loop(Node, RetryIntervalMs)
+        false -> reconnect_node_loop(Node, RetryIntervalSec, AbandonNodeAfterSec, TotalRetriesSec + RetryIntervalSec)
     end.
 
 -spec i_connect_node(Node :: atom()) -> boolean().
 i_connect_node(Node) ->
     case net_kernel:connect_node(Node) of
-        true ->
-            true;
-        _ ->
-            error_logger:info_msg("Could not connect to node '~p' yet"),
-            false
+        true -> true;
+        _ -> false
     end.

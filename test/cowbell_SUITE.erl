@@ -34,7 +34,8 @@
 %% tests
 -export([
     two_nodes_connect/1,
-    two_nodes_reconnect/1
+    two_nodes_reconnect/1,
+    two_nodes_abandon/1
 ]).
 
 
@@ -74,7 +75,8 @@ groups() ->
     [
         {two_nodes, [shuffle], [
             two_nodes_connect,
-            two_nodes_reconnect
+            two_nodes_reconnect,
+            two_nodes_abandon
         ]}
     ].
 %% -------------------------------------------------------------------
@@ -147,13 +149,19 @@ init_per_testcase(_TestCase, Config) -> Config.
 % Config0 = Config1 = [tuple()]
 % Reason = term()
 % ----------------------------------------------------------------------------------------------------------
+end_per_testcase(two_nodes_abandon, Config) ->
+    %% get slave node name
+    SlaveNodeShortName = proplists:get_value(slave_node_short_name, Config),
+    %% stop slave
+    cowbell_test_suite_helper:start_slave(SlaveNodeShortName);
+
 end_per_testcase(_TestCase, _Config) -> ok.
 
 %% ===================================================================
 %% Tests
 %% ===================================================================
 two_nodes_connect(Config) ->
-    %% get nodes
+    %% get node
     SlaveNode = proplists:get_value(slave_node, Config),
 
     %% disconnect from slave
@@ -170,7 +178,7 @@ two_nodes_connect(Config) ->
     [SlaveNode] = nodes().
 
 two_nodes_reconnect(Config) ->
-    %% get nodes
+    %% get node
     SlaveNode = proplists:get_value(slave_node, Config),
 
     %% explicitly connect
@@ -187,3 +195,28 @@ two_nodes_reconnect(Config) ->
 
     %% check
     [SlaveNode] = nodes().
+
+two_nodes_abandon(Config) ->
+    %% get node
+    SlaveNode = proplists:get_value(slave_node, Config),
+    SlaveNodeShortName = proplists:get_value(slave_node_short_name, Config),
+
+    %% explicitly connect
+    cowbell:connect_nodes(),
+
+    %% check
+    [SlaveNode] = nodes(),
+
+    %% stop slave
+    cowbell_test_suite_helper:stop_slave(SlaveNodeShortName),
+    ProcessCountWithRetryProcess = length(processes()),
+
+    %% check disconnected
+    [] = nodes(),
+
+    %% let abandon period go by
+    timer:sleep(3500),
+
+    %% check processes count
+    %% (this is not an exhaustive test, but it's the best we can do: we verify that a process died - the reconnect process)
+    ProcessCountWithRetryProcess = length(processes()) + 1.
