@@ -34,11 +34,12 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% macros
--define(CHECK_INTERVAL_MS, 1000).
+-define(DEFAULT_CHECK_INTERVAL_MS, 1000).
 
 %% records
 -record(state, {
     nodes = [] :: list(),
+    check_interval_ms = 0 :: non_neg_integer(),
     timer_ref = undefined :: undefined | reference()
 }).
 
@@ -67,12 +68,16 @@ connect_nodes() ->
     ignore |
     {stop, Reason :: any()}.
 init([]) ->
+    %% get preferences
+    {ok, CheckIntervalMs} = application:get_env(cowbell, check_interval_ms, ?DEFAULT_CHECK_INTERVAL_MS),
+
     %% get nodes
     {ok, Nodes} = application:get_env(nodes),
 
     %% build state
     {ok, #state{
-        nodes = Nodes
+        nodes = Nodes,
+        check_interval_ms = CheckIntervalMs
     }}.
 
 %% ----------------------------------------------------------------------------------------------------------
@@ -154,11 +159,12 @@ check_and_connect_nodes(#state{
 
 -spec timeout(#state{}) -> #state{}.
 timeout(#state{
+    check_interval_ms = CheckIntervalMs,
     timer_ref = TimerPrevRef
 } = State) ->
     case TimerPrevRef of
         undefined -> ignore;
         _ -> erlang:cancel_timer(TimerPrevRef)
     end,
-    TimerRef = erlang:send_after(?CHECK_INTERVAL_MS, self(), check_and_connect_nodes),
+    TimerRef = erlang:send_after(CheckIntervalMs, self(), check_and_connect_nodes),
     State#state{timer_ref = TimerRef}.
