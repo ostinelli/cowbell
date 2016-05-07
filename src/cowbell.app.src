@@ -1,0 +1,19 @@
+{application, cowbell,
+    [
+        {description, "A node connection manager that handles reconnections in dynamic environments."},
+        {vsn, "0.0.1"},
+        {registered, [
+            cowbell_sup
+        ]},
+        {applications, [
+            kernel,
+            stdlib
+        ]},
+        {mod, {cowbell_app, []}},
+        {env, []},
+
+        {maintainers, ["Roberto Ostinelli"]},
+        {licenses, ["MIT"]},
+        {links, [{"Github", "https://github.com/ostinelli/cowbell"}]}
+    ]
+}.
