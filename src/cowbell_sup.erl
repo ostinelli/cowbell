@@ -49,5 +49,7 @@ start_link() ->
 -spec init([]) ->
     {ok, {{supervisor:strategy(), non_neg_integer(), pos_integer()}, [supervisor:child_spec()]}}.
 init([]) ->
-    Children = [],
+    Children = [
+        ?CHILD(cowbell_monitor, worker)
+    ],
     {ok, {{one_for_one, 10, 10}, Children}}.

@@ -3,6 +3,7 @@
         {description, "A node connection manager that handles reconnections in dynamic environments."},
         {vsn, "0.0.1"},
         {registered, [
+            cowbell_monitor,
             cowbell_sup
         ]},
         {applications, [

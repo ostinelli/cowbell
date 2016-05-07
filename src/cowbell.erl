@@ -27,6 +27,7 @@
 
 %% API
 -export([start/0, stop/0]).
+-export([connect_nodes/0]).
 
 %% ===================================================================
 %% API
@@ -38,6 +39,10 @@ start() ->
 -spec stop() -> ok.
 stop() ->
     ok = application:stop(cowbell).
+
+-spec connect_nodes() -> ok.
+connect_nodes() ->
+    cowbell_monitor:connect_nodes().
 
 %% ===================================================================
 %% Internal
