@@ -89,7 +89,8 @@ init_per_suite(Config) ->
     SlaveNodeShortName = syn_slave,
     %% start slave
     {ok, SlaveNode} = cowbell_test_suite_helper:start_slave(SlaveNodeShortName),
-    %% set environment
+    %% set environments
+    cowbell_test_suite_helper:set_environment_variables(),
     application:set_env(cowbell, nodes, [SlaveNode]),
     %% start app
     cowbell:start(),

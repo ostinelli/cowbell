@@ -33,14 +33,16 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+%% internal
+-export([reconnect_node_loop/2]).
+
 %% macros
--define(DEFAULT_CHECK_INTERVAL_MS, 1000).
+-define(DEFAULT_RETRY_INTERVAL_MS, 10000).
 
 %% records
 -record(state, {
     nodes = [] :: list(),
-    check_interval_ms = 0 :: non_neg_integer(),
-    timer_ref = undefined :: undefined | reference()
+    retry_interval_ms = 0 :: non_neg_integer()
 }).
 
 %% ===================================================================
@@ -69,15 +71,16 @@ connect_nodes() ->
     {stop, Reason :: any()}.
 init([]) ->
     %% get preferences
-    {ok, CheckIntervalMs} = application:get_env(cowbell, check_interval_ms, ?DEFAULT_CHECK_INTERVAL_MS),
-
-    %% get nodes
+    RetryIntervalMs = application:get_env(cowbell, retry_interval_ms, ?DEFAULT_RETRY_INTERVAL_MS),
     {ok, Nodes} = application:get_env(nodes),
+
+    %% listen for events
+    ok = net_kernel:monitor_nodes(true),
 
     %% build state
     {ok, #state{
         nodes = Nodes,
-        check_interval_ms = CheckIntervalMs
+        retry_interval_ms = RetryIntervalMs
     }}.
 
 %% ----------------------------------------------------------------------------------------------------------
@@ -91,9 +94,11 @@ init([]) ->
     {stop, Reason :: any(), Reply :: any(), #state{}} |
     {stop, Reason :: any(), #state{}}.
 
-handle_call(connect_nodes, _From, State) ->
-    State1 = check_and_connect_nodes(State),
-    {reply, ok, State1};
+handle_call(connect_nodes, _From, #state{
+    nodes = Nodes
+} = State) ->
+    connect_nodes(Nodes),
+    {reply, ok, State};
 
 handle_call(Request, From, State) ->
     error_logger:warning_msg("Received from ~p an unknown call message: ~p", [Request, From]),
@@ -119,9 +124,16 @@ handle_cast(Msg, State) ->
     {noreply, #state{}, Timeout :: non_neg_integer()} |
     {stop, Reason :: any(), #state{}}.
 
-handle_info(check_and_connect_nodes, State) ->
-    State1 = check_and_connect_nodes(State),
-    {noreply, State1};
+handle_info({nodedown, Node}, #state{
+    retry_interval_ms = RetryIntervalMs
+} = State) ->
+    error_logger:warning_msg("Node ~p got disconnected, will try to reconnect in ~p ms", [Node, RetryIntervalMs]),
+    spawn_link(?MODULE, reconnect_node_loop, [Node, RetryIntervalMs]),
+    {noreply, State};
+
+handle_info({nodeup, Node}, State) ->
+    error_logger:warning_msg("Node ~p got connected", [Node]),
+    {noreply, State};
 
 handle_info(Info, State) ->
     error_logger:warning_msg("Received an unknown info message: ~p", [Info]),
@@ -145,26 +157,24 @@ code_change(_OldVsn, State, _Extra) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
-check_and_connect_nodes(#state{
-    nodes = Nodes
-} = State) ->
-    %% find disconnected nodes
-    ClusterNodes = [node() | nodes()],
-    F = fun(Node) -> lists:member(Node, ClusterNodes) =:= false end,
-    DisconnectedNodes = lists:filter(F, Nodes),
-    %% connect to disconnected nodes
-    [net_kernel:connect_node(Node) || Node <- DisconnectedNodes],
-    %% add timeout
-    timeout(State).
+-spec connect_nodes(Nodes :: [atom()]) -> [atom()].
+connect_nodes(Nodes) ->
+    [i_connect_node(Node) || Node <- Nodes].
 
--spec timeout(#state{}) -> #state{}.
-timeout(#state{
-    check_interval_ms = CheckIntervalMs,
-    timer_ref = TimerPrevRef
-} = State) ->
-    case TimerPrevRef of
-        undefined -> ignore;
-        _ -> erlang:cancel_timer(TimerPrevRef)
-    end,
-    TimerRef = erlang:send_after(CheckIntervalMs, self(), check_and_connect_nodes),
-    State#state{timer_ref = TimerRef}.
+-spec reconnect_node_loop(Node :: atom(), RetryIntervalMs :: non_neg_integer()) -> ok.
+reconnect_node_loop(Node, RetryIntervalMs) ->
+    timer:sleep(RetryIntervalMs),
+    case i_connect_node(Node) of
+        true -> ok;
+        false -> reconnect_node_loop(Node, RetryIntervalMs)
+    end.
+
+-spec i_connect_node(Node :: atom()) -> boolean().
+i_connect_node(Node) ->
+    case net_kernel:connect_node(Node) of
+        true ->
+            true;
+        _ ->
+            error_logger:info_msg("Could not connect to node '~p' yet"),
+            false
+    end.
