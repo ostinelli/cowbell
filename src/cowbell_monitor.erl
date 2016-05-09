@@ -37,6 +37,9 @@
 -define(DEFAULT_CHECK_INTERVAL_SEC, 10).
 -define(DEFAULT_ABANDON_NODE_AFTER_SEC, 86400).
 
+%% types
+-type disconnected_node_info() :: {Node :: atom(), DisconnectedAt :: non_neg_integer()}.
+
 %% records
 -record(state, {
     monitored_nodes = [] :: [atom()],
@@ -191,11 +194,13 @@ code_change(_OldVsn, State, _Extra) ->
 %% ===================================================================
 %% Internal
 %% ===================================================================
+-spec init_disconnected_node_info(Nodes :: [atom()]) -> [disconnected_node_info()].
 init_disconnected_node_info(Nodes) ->
     DisconnectedAt = epoch_time(),
     F = fun(Node) -> {Node, DisconnectedAt} end,
     lists:map(F, Nodes).
 
+-spec connect_nodes(#state{}) -> #state{}.
 connect_nodes(#state{
     disconnected_nodes_info = DisconnectedNodesInfo,
     abandon_node_after_sec = AbandonNodeAfterSec
@@ -207,9 +212,16 @@ connect_nodes(#state{
     %% return
     State1#state{disconnected_nodes_info = DisconnectedNodesInfo1}.
 
+-spec connect_nodes([disconnected_node_info()], AbandonNodeAfterSec :: non_neg_integer()) ->
+    [disconnected_node_info()].
 connect_nodes(DisconnectedNodesInfo, AbandonNodeAfterSec) ->
     connect_nodes(DisconnectedNodesInfo, AbandonNodeAfterSec, []).
 
+-spec connect_nodes(
+    [disconnected_node_info()],
+    AbandonNodeAfterSec :: non_neg_integer(),
+    AccNodesInfo :: [disconnected_node_info()]
+) -> [disconnected_node_info()].
 connect_nodes([], _, AccNodesInfo) -> AccNodesInfo;
 connect_nodes([{Node, DisconnectedAt} = NodeInfo | TNodesInfo], AbandonNodeAfterSec, AccNodesInfo) ->
     %% get current time
@@ -238,6 +250,7 @@ connect_nodes([{Node, DisconnectedAt} = NodeInfo | TNodesInfo], AbandonNodeAfter
     end,
     connect_nodes(TNodesInfo, AbandonNodeAfterSec, AccNodesInfo1).
 
+-spec epoch_time() -> non_neg_integer().
 epoch_time() ->
     {M, S, _} = os:timestamp(),
     M * 1000000 + S.
