@@ -38,6 +38,14 @@
     two_nodes_abandon/1
 ]).
 
+%% records
+-record(state, {
+    monitored_nodes = [] :: [atom()],
+    disconnected_nodes_info = [] :: list(),
+    check_interval_sec = 0 :: non_neg_integer(),
+    abandon_node_after_sec :: non_neg_integer(),
+    timer_ref = undefined :: undefined | reference()
+}).
 
 %% include
 -include_lib("common_test/include/ct.hrl").
@@ -191,7 +199,7 @@ two_nodes_reconnect(Config) ->
     %% check disconnected
     [] = nodes(),
 
-    timer:sleep(1000),
+    timer:sleep(2000),
 
     %% check
     [SlaveNode] = nodes().
@@ -213,11 +221,14 @@ two_nodes_abandon(Config) ->
 
     %% check disconnected
     [] = nodes(),
-    ProcessCountWithRetryProcess = length(processes()),
+
+    %% check in disconnected list
+    State0 = sys:get_state(cowbell_monitor),
+    true = lists:keymember(SlaveNode, 1, State0#state.disconnected_nodes_info),
 
     %% let abandon period go by
     timer:sleep(5000),
 
-    %% check processes count
-    %% (this is not an exhaustive test, but it's the best we can do: we verify that a process died - the reconnect process)
-    ProcessCountWithRetryProcess = length(processes()) + 1.
+    %% check not in disconnected list
+    State1 = sys:get_state(cowbell_monitor),
+    false = lists:keymember(SlaveNode, 1, State1#state.disconnected_nodes_info).
