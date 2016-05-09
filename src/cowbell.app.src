@@ -1,6 +1,6 @@
 {application, cowbell,
     [
-        {description, "A node connection manager that handles reconnections in dynamic environments."},
+        {description, "A node connection manager."},
         {vsn, "0.1.0"},
         {registered, [
             cowbell_monitor,
