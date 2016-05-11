@@ -16,7 +16,7 @@ Cowbell automatically manages the connections & reconnections for you.
 If you're using [rebar3](https://github.com/erlang/rebar3), add `cowbell` as a dependency in your project's `rebar.config` file:
 
 ```erlang
-{syn, {git, "git://github.com/ostinelli/cowbell.git", {tag, "0.1.0"}}}
+{cowbell, {git, "git://github.com/ostinelli/cowbell.git", {tag, "0.1.0"}}}
 ```
 
 Or, if you're using [Hex.pm](https://hex.pm/) as package manager (with the [rebar3_hex](https://github.com/hexpm/rebar3_hex) plugin):
@@ -35,7 +35,7 @@ $ rebar3 compile
 If you're using [rebar](https://github.com/rebar/rebar), add `cowbell` as a dependency in your project's `rebar.config` file:
 
 ```erlang
-{syn, ".*", {git, "git://github.com/ostinelli/cowbell.git", {tag, "0.1.0"}}}
+{cowbell, ".*", {git, "git://github.com/ostinelli/cowbell.git", {tag, "0.1.0"}}}
 ```
 
 Then, get and compile your dependencies:
