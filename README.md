@@ -90,7 +90,7 @@ The recommended place to do so is in the `start/2` function in your main applica
 
 start(_StartType, _StartArgs) ->
     %% connect to nodes
-    cowbell:connect_nodes().
+    cowbell:connect_nodes(),
     %% start sup
     myapp_sup:start_link().
 ```
