@@ -96,7 +96,7 @@ groups() ->
 %% -------------------------------------------------------------------
 init_per_suite(Config) ->
     %% init
-    SlaveNodeShortName = syn_slave,
+    SlaveNodeShortName = cowbell_slave,
     %% start slave
     {ok, SlaveNode} = cowbell_test_suite_helper:start_slave(SlaveNodeShortName),
     %% set environments
