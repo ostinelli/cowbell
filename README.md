@@ -31,20 +31,6 @@ Then, compile:
 $ rebar3 compile
 ```
 
-### Rebar2
-If you're using [rebar](https://github.com/rebar/rebar), add `cowbell` as a dependency in your project's `rebar.config` file:
-
-```erlang
-{cowbell, ".*", {git, "git://github.com/ostinelli/cowbell.git", {tag, "0.1.0"}}}
-```
-
-Then, get and compile your dependencies:
-
-```bash
-$ rebar get-deps
-$ rebar compile
-```
-
 ## Usage
 
 ### Setup
@@ -109,7 +95,7 @@ Before implementing a new feature, please submit a ticket to discuss what you in
 
 Do not commit to master in your fork. Provide a clean branch without merge commits. Every pull request should have its own topic branch. In this way, every additional adjustments to the original pull request might be done easily, and squashed with `git rebase -i`. The updated branch will be visible in the same pull request, so there will be no need to open new pull requests when there are changes to be applied.
 
-Ensure to include proper testing. To run tests you simply have to be in the project's root directory and run:
+Ensure that you include proper testing. To run tests you simply have to be in the project's root directory and run:
 
 ```bash
 $ make tests
