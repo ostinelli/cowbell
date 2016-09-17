@@ -65,8 +65,7 @@ Your application will have its own logic on when to connect to the other nodes i
 ```erlang
 cowbell:connect_nodes().
 ```
-
-The recommended place to do so is in the `start/2` function in your main application module, something along the lines of:
+A possible place to do so is in the `start/2` function in your main application module, something along the lines of:
 
 ```erlang
 -module(myapp_app).
@@ -82,6 +81,8 @@ start(_StartType, _StartArgs) ->
 ```
 
 Cowbell will then start monitoring nodes.
+
+> You may prefer to initialize Cowbell inside of the root supervisor instead. This is particularly true if you are using OTP's `included_applications` feature.
 
 ## Why "Cowbell"?
 _"A cow bell or cowbell is a bell worn by freely roaming livestock, making animals easier to locate should they wander off."_
