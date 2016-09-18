@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/ostinelli/cowbell.svg?branch=master)](https://travis-ci.org/ostinelli/cowbell)
+[![Hex pm](https://img.shields.io/hexpm/v/cowbell.svg)](https://hex.pm/packages/cowbell)
 
 # Cowbell
 **Cowbell** is an Erlang node connection manager.
