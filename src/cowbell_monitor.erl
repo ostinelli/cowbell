@@ -151,7 +151,7 @@ handle_info({nodedown, Node}, #state{
             %% reply
             {noreply, State1};
         false ->
-            error_logger:warning_msg("Node '~p' got disconnected but not in list of monitored nodes, ignoring"),
+            error_logger:warning_msg("Node '~p' got disconnected but not in list of monitored nodes, ignoring", [Node]),
             %% reply
             {noreply, State}
     end;
