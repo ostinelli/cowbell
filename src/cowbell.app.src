@@ -1,7 +1,7 @@
 {application, cowbell,
     [
         {description, "A node connection manager."},
-        {vsn, "1.0.0"},
+        {vsn, "1.0.1"},
         {registered, [
             cowbell_monitor,
             cowbell_sup
